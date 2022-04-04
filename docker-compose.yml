@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      dockerfile: Dockerfile
+      context: ./
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - WORDPRESS_URL=localhost
+#      - WORDPRESS_DEBUG=true
+      - WORDPRESS_DB_HOST=db
+      - WORDPRESS_DB_USER=root
+      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_DB_PASSWORD=wordpress
+      - WORDPRESS_ADMIN_USER=wordpress
+      - WORDPRESS_ADMIN_PASSWORD=wordpress
+      - WORDPRESS_ADMIN_EMAIL=test@local.host
+      - DB_HOST=db
+    ports:
+      - "80:80"
+    volumes:
+      - ./copied:/var/www/html-copied
+  db:
+    image: mariadb
+    environment:
+      - MARIADB_ROOT_PASSWORD=wordpress
+      - MARIADB_DATABASE=wordpress
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "-u", "root", "-p$$MARIADB_ROOT_PASSWORD", "ping"]
+      timeout: 3s
+      retries: 10
