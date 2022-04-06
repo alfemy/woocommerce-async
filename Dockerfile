@@ -161,14 +161,18 @@ RUN set -eux; \
 	chown -R www-data:www-data wp-content; \
 	chmod -R 777 wp-content
 
-#VOLUME /var/www/html
 
 COPY --chown=www-data:www-data wp-config-docker.php /usr/src/wordpress/
 COPY docker-entrypoint.sh /usr/local/bin/
 
+ADD scripts/ /
+RUN chmod +x /*.sh
+
+
 RUN curl -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
     && chmod +x /usr/local/bin/wp
 
+COPY --chown=www-data:www-data wordpress /var/www/html
 
 
 ENTRYPOINT ["docker-entrypoint.sh"]

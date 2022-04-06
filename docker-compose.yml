@@ -22,14 +22,12 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./copied:/var/www/html-copied
+      - ./wp-content:/var/www/wp-content
   db:
     image: mariadb
     environment:
       - MARIADB_ROOT_PASSWORD=wordpress
       - MARIADB_DATABASE=wordpress
-    ports:
-      - "3306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "-u", "root", "-p$$MARIADB_ROOT_PASSWORD", "ping"]
       timeout: 3s

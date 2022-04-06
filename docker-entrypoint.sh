@@ -96,33 +96,24 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 	fi
 fi
 
+#Assign the WSP DB environment variables to the WORDPRESS_ENVIRONMENT variables
+
 echo "Start configuring WordPress"
 export WP_CLI_CACHE_DIR="/tmp/.wp-cli/cache/"
 runuser -u www-data -- wp core install --skip-email --title='WSP AWS' --url=$WORDPRESS_URL --admin_user=$WORDPRESS_ADMIN_USER --admin_email=$WORDPRESS_ADMIN_EMAIL --admin_password=$WORDPRESS_ADMIN_PASSWORD --path=/var/www/html/
-runuser -u www-data -- wp theme install storefront --activate
-runuser -u www-data -- wp plugin install woocommerce --activate
+runuser -u www-data -- wp theme activate storefront
+runuser -u www-data -- wp plugin activate woocommerce
 runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple product" --type="simple" --regular_price="11.00"
 runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
 
 #rsync and loop are running in background and are not blocking Apache start
-rsync -a /var/www/html/ /var/www/html-copied/ &
-pid=$!
-echo "Start rsync wordpress files, PID is $pid"
+mkdir -p /var/www/wp-content/
+chown www-data:www-data  /var/www/wp-content/
 
-while /bin/true; do
-    sleep 1
-    if ps -p $pid > /dev/null
-    then
-        echo "rsync is running"
-    else
-        echo "rsync is not running"
-        mv /var/www/html/ /var/www/html-original/
-        ln -s /var/www/html-copied/ /var/www/html
-        break
-    fi
-done &
+echo "Run copying in background"
+runuser -u www-data -- /async-copy.sh > /var/www/html/sync.log 2>&1
 
 exec "$@"
 }
