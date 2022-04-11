@@ -96,17 +96,56 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 	fi
 fi
 
-#Assign the WSP DB environment variables to the WORDPRESS_ENVIRONMENT variables
 
+
+#Assign the WSP DB environment variables to the WORDPRESS_ENVIRONMENT variables
+#Do not fail if the environment variables are not set
+set +u
+
+if ! [ -z "$DB_HOST" ]; then
+  export WORDPRESS_DB_HOST="$DB_HOST"
+fi
+if ! [ -z "$DB_USER" ]; then
+  export WORDPRESS_DB_USER="$DB_USER"
+fi
+if ! [ -z "$DB_NAME" ]; then
+  export WORDPRESS_DB_NAME="$DB_NAME"
+fi
+if ! [ -z "$DB_PASSWORD" ]; then
+  export WORDPRESS_DB_PASSWORD="$DB_PASSWORD"
+fi
+
+#Assign default values to the WORDPRESS_ENVIRONMENT variables if they are not set
+if [ -z "$WORDPRESS_ADMIN_USER" ]; then
+  export WORDPRESS_ADMIN_USER='admin'
+fi
+if [ -z "$WORDPRESS_ADMIN_EMAIL" ]; then
+  export WORDPRESS_ADMIN_EMAIL='wsp@local.host'
+fi
+if [ -z "$WORDPRESS_TITLE" ]; then
+  export WORDPRESS_TITLE='WSP AWS'
+fi
 echo "Start configuring WordPress"
 export WP_CLI_CACHE_DIR="/tmp/.wp-cli/cache/"
-runuser -u www-data -- wp core install --skip-email --title='WSP AWS' --url=$WORDPRESS_URL --admin_user=$WORDPRESS_ADMIN_USER --admin_email=$WORDPRESS_ADMIN_EMAIL --admin_password=$WORDPRESS_ADMIN_PASSWORD --path=/var/www/html/
+
+if [ -z "$WORDPRESS_ADMIN_PASSWORD" ]; then
+  runuser -u www-data -- wp core install --skip-email --title="$WORDPRESS_TITLE" \
+   --url="$WORDPRESS_URL" --admin_user="$WORDPRESS_ADMIN_USER" \
+   --admin_email="$WORDPRESS_ADMIN_EMAIL" --path=/var/www/html/
+else
+  runuser -u www-data -- wp core install --skip-email --title="$WORDPRESS_TITLE" --url="$WORDPRESS_URL" \
+  --admin_user="$WORDPRESS_ADMIN_USER" --admin_email="$WORDPRESS_ADMIN_EMAIL" \
+  --admin_password="$WORDPRESS_ADMIN_PASSWORD" --path=/var/www/html/
+fi
 runuser -u www-data -- wp theme activate storefront
 runuser -u www-data -- wp plugin activate woocommerce
 runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple product" --type="simple" --regular_price="11.00"
 runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
+
+set +u
+echo "End configuring WordPress"
 
 #rsync and loop are running in background and are not blocking Apache start
 mkdir -p /var/www/wp-content/
