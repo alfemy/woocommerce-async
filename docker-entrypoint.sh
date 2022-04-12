@@ -25,6 +25,9 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 		group="$gid"
 	fi
 
+
+
+
 	if [ ! -e index.php ] && [ ! -e wp-includes/version.php ]; then
 		# if the directory exists and WordPress doesn't appear to be installed AND the permissions of it are root:root, let's chown it (likely a Docker-created directory)
 		if [ "$uid" = '0' ] && [ "$(stat -c '%u:%g' .)" = '0:0' ]; then
@@ -96,11 +99,23 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 	fi
 fi
 
+set +u
+#Show static page with error if $WORDPRESS_URL is not set
+if [ -z "$WORDPRESS_URL" ]; then
+  echo '<h1>Environment variable $WORDPRESS_URL is not set. Please set it with Wordpress domain and re-deploy</h1>' > /var/www/html/index.html
+  echo "DirectoryIndex index.html" >> /var/www/html/.htaccess
+  echo "Running Web-server to show error that WORDPRESS_URL is not set"
+  exec "$@"
+else
+  echo "Removing DirectoryIndex directive from .htaccess, index.php will be served"
+  sed -i '/DirectoryIndex/d' /var/www/html/.htaccess
+fi
 
+#Unit tests
 
 #Assign the WSP DB environment variables to the WORDPRESS_ENVIRONMENT variables
 #Do not fail if the environment variables are not set
-set +u
+
 
 if ! [ -z "$DB_HOST" ]; then
   export WORDPRESS_DB_HOST="$DB_HOST"
