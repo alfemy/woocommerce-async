@@ -25,9 +25,6 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 		group="$gid"
 	fi
 
-
-
-
 	if [ ! -e index.php ] && [ ! -e wp-includes/version.php ]; then
 		# if the directory exists and WordPress doesn't appear to be installed AND the permissions of it are root:root, let's chown it (likely a Docker-created directory)
 		if [ "$uid" = '0' ] && [ "$(stat -c '%u:%g' .)" = '0:0' ]; then
@@ -158,6 +155,8 @@ runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple
 runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
+runuser -u www-data -- wp option update page_on_front 5
+runuser -u www-data -- wp option update show_on_front page
 
 set +u
 echo "End configuring WordPress"
