@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 echo "Running docker-entrypoint.sh"
+echo "Wordpress version is 5.3.9"
 set -Eeuo pipefail
 if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 	uid="$(id -u)"
@@ -146,17 +147,15 @@ else
   --admin_user="$WORDPRESS_ADMIN_USER" --admin_email="$WORDPRESS_ADMIN_EMAIL" \
   --admin_password="$WORDPRESS_ADMIN_PASSWORD" --path=/var/www/html/
 fi
-runuser -u www-data -- wp core update
-runuser -u www-data -- wp plugin update --all
-runuser -u www-data -- wp theme update --all
-runuser -u www-data -- wp theme activate storefront
+
 runuser -u www-data -- wp plugin activate woocommerce
+runuser -u www-data -- wp theme activate storefront
 runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple product" --type="simple" --regular_price="11.00"
 runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
 runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
-#runuser -u www-data -- wp option update page_on_front 5
-#runuser -u www-data -- wp option update show_on_front page
+runuser -u www-data -- wp option update page_on_front 5
+runuser -u www-data -- wp option update show_on_front page
 
 set +u
 echo "End configuring WordPress"
@@ -165,11 +164,12 @@ echo "Listing /var/www/"
 ls -la /var/www/html/
 
 mkdir -p /var/www/wp-content/
-chown www-data:www-data  /var/www/wp-content/
+chown www-data:www-data  /var/www/wp-content
 
 #rsync and loop are running in background and are not blocking Apache start
 echo "Run copying wp-content in background"
 runuser -u www-data -- /async-copy.sh > /var/www/html/sync.log 2>&1
 
+echo "Starting Apache"
 exec "$@"
 }

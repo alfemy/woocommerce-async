@@ -28,13 +28,19 @@ while /bin/true; do
         rm -rf /var/www/html/wp-content && echo "removed wp-content" || echo "failed to remove wp-content"
         ln -s /var/www/wp-content /var/www/html/wp-content && echo "linked wp-content" || echo "failed to link wp-content"
         echo "Copying is done"
+        echo "Number or files in /var/www/html/wp-content:"
+        find /var/www/html/wp-content | wc -l
         echo "Listing files in /var/www/html/wp-content/..."
         ls -l /var/www/html/wp-content/
         echo "----------------------------------------"
+        echo "Number or files in /var/www/html:"
+        find /var/www/html/ | wc -l
         echo "Listing files in /var/www/html/..."
         ls -l /var/www/html/
         echo "----------------------------------------"
-        echo "Listing files in /var/www/  ..."
+        echo "Number or files in /var/www/:"
+        find /var/www/ | wc -l
+        echo "Listing files in /var/www/..."
         ls -l /var/www/
         echo "----------------------------------------"
         break
