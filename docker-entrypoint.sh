@@ -97,20 +97,11 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 	fi
 fi
 
+mkdir -p /var/www/wp-content/
+chown www-data:www-data  /var/www/wp-content
+
 #Do not fail if the environment variables are not set
 set +u
-#Show static page with error if $WORDPRESS_URL is not set
-if [ -z "$WORDPRESS_URL" ]; then
-  echo '<h1>Environment variable $WORDPRESS_URL is not set. Please set it with Wordpress domain and re-deploy</h1>' > /var/www/html/index.html
-  echo "DirectoryIndex index.html" >> /var/www/html/.htaccess
-  echo "Running Web-server to show error that WORDPRESS_URL is not set"
-  exec "$@"
-else
-  echo "Removing DirectoryIndex directive from .htaccess, index.php will be served"
-  sed -i '/DirectoryIndex/d' /var/www/html/.htaccess
-fi
-
-
 #Assign the WSP DB environment variables to the WORDPRESS_ENVIRONMENT variables
 if ! [ -z "$DB_HOST" ]; then
   export WORDPRESS_DB_HOST="$DB_HOST"
@@ -135,38 +126,51 @@ fi
 if [ -z "$WORDPRESS_TITLE" ]; then
   export WORDPRESS_TITLE='WSP AWS'
 fi
-echo "Start configuring WordPress"
-export WP_CLI_CACHE_DIR="/tmp/.wp-cli/cache/"
 
-if [ -z "$WORDPRESS_ADMIN_PASSWORD" ]; then
-  runuser -u www-data -- wp core install --skip-email --title="$WORDPRESS_TITLE" \
-   --url="$WORDPRESS_URL" --admin_user="$WORDPRESS_ADMIN_USER" \
-   --admin_email="$WORDPRESS_ADMIN_EMAIL" --path=/var/www/html/
+#Show static page with error if $WORDPRESS_URL is not set
+if [ -z "$WORDPRESS_URL" ]; then
+  echo '<h1>Environment variable $WORDPRESS_URL is not set. Please set it with Wordpress domain and re-deploy</h1>' > /var/www/html/index.html
+  echo "DirectoryIndex index.html" >> /var/www/html/.htaccess
+  echo "Running Web-server to show error that WORDPRESS_URL is not set"
+  exec "$@"
 else
-  runuser -u www-data -- wp core install --skip-email --title="$WORDPRESS_TITLE" --url="$WORDPRESS_URL" \
-  --admin_user="$WORDPRESS_ADMIN_USER" --admin_email="$WORDPRESS_ADMIN_EMAIL" \
-  --admin_password="$WORDPRESS_ADMIN_PASSWORD" --path=/var/www/html/
+  echo "Removing DirectoryIndex directive from .htaccess, index.php will be served"
+  sed -i '/DirectoryIndex/d' /var/www/html/.htaccess
 fi
 
-runuser -u www-data -- wp plugin activate woocommerce
-runuser -u www-data -- wp theme activate storefront
-runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple product" --type="simple" --regular_price="11.00"
-runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
-runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
-runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
-runuser -u www-data -- wp option update page_on_front 5
-runuser -u www-data -- wp option update show_on_front page
+set +e
+export WP_CLI_CACHE_DIR="/tmp/.wp-cli/cache/"
+wp core --allow-root is-installed
+INSTALLED=$?
+set -e
+if [ $INSTALLED -eq 0 ]; then
+    echo "Wordpress is already installed"
+    echo "Starting Apache"
+    exec "$@"
+else
+    echo "Wordpress is not installed, going to install"
+    if [ -z "$WORDPRESS_ADMIN_PASSWORD" ]; then
+      runuser -u www-data -- wp core install --skip-email --title="$WORDPRESS_TITLE" \
+       --url="$WORDPRESS_URL" --admin_user="$WORDPRESS_ADMIN_USER" \
+       --admin_email="$WORDPRESS_ADMIN_EMAIL" --path=/var/www/html/
+    else
+      runuser -u www-data -- wp core install --skip-email --title="$WORDPRESS_TITLE" --url="$WORDPRESS_URL" \
+      --admin_user="$WORDPRESS_ADMIN_USER" --admin_email="$WORDPRESS_ADMIN_EMAIL" \
+      --admin_password="$WORDPRESS_ADMIN_PASSWORD" --path=/var/www/html/
+    fi
+    runuser -u www-data -- wp plugin activate woocommerce
+    runuser -u www-data -- wp theme activate storefront
+    runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple product" --type="simple" --regular_price="11.00"
+    runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
+    runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
+    runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
+    runuser -u www-data -- wp option update page_on_front 5
+    runuser -u www-data -- wp option update show_on_front page
+    echo "End configuring WordPress"
+fi
 
-set +u
-echo "End configuring WordPress"
+set -u
 
-echo "Listing /var/www/"
-ls -la /var/www/html/
-
-mkdir -p /var/www/wp-content/
-chown www-data:www-data  /var/www/wp-content
-
-#rsync and loop are running in background and are not blocking Apache start
 echo "Run copying wp-content in background"
 runuser -u www-data -- /async-copy.sh > /var/www/html/sync.log 2>&1
 

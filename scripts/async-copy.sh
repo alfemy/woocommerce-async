@@ -25,7 +25,7 @@ while /bin/true; do
 #        my_status=$?
 #        echo "Exit code of copying is $my_status"
 #        mv /var/www/html/wp-content{,_orgin} && echo "moved wp-content" || echo "failed to move wp-content"
-        rm -rf /var/www/html/wp-content && echo "removed wp-content" || echo "failed to remove wp-content"
+        rm -r /var/www/html/wp-content && echo "removed wp-content" || echo "failed to remove wp-content"
         ln -s /var/www/wp-content /var/www/html/wp-content && echo "linked wp-content" || echo "failed to link wp-content"
         echo "Copying is done"
         echo "Number or files in /var/www/html/wp-content:"
