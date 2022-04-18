@@ -140,6 +140,13 @@ fi
 
 set +e
 export WP_CLI_CACHE_DIR="/tmp/.wp-cli/cache/"
+
+##Create a static page to pass health check and debug
+#echo '<h1>Temporary page to pass AWS health check</h1>' > /var/www/html/index.html
+#echo "DirectoryIndex index.html" >> /var/www/html/.htaccess
+#echo "Running Web-server"
+#exec "$@"
+
 wp core --allow-root is-installed
 INSTALLED=$?
 set -e
@@ -163,7 +170,6 @@ else
     runuser -u www-data -- wp --user=1 wc product create --name="Example of a simple product" --type="simple" --regular_price="11.00"
     runuser -u www-data -- wp --user=1 wc product create --name="Example of an variable product" --type="variable" --attributes='[ { "name":"size", "variation":"true", "options":"X|XL" } ]'
     runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"X" } ]' --regular_price="51.00"
-    runuser -u www-data -- wp --user=1 wc product_variation create 11 --attributes='[ { "name":"size", "option":"XL" } ]' --regular_price="52.00"
     runuser -u www-data -- wp option update page_on_front 5
     runuser -u www-data -- wp option update show_on_front page
     echo "End configuring WordPress"
@@ -171,8 +177,25 @@ fi
 
 set -u
 
-echo "Run copying wp-content in background"
-runuser -u www-data -- /async-copy.sh > /var/www/html/sync.log 2>&1
+#echo "Run copying wp-content in background"
+#runuser -u www-data -- /async-copy.sh > /var/www/html/sync.log 2>&1
+runuser -u www-data -- cp -pr /var/www/html/wp-content  /var/www/ &
+pid=$!
+echo "Start copying wp-content files, PID is $pid"
+
+while /bin/true; do
+    sleep 1
+    if ps -p $pid > /dev/null
+    then
+        echo "copying is running"
+    else
+        echo "copying is not running"
+        runuser -u www-data -- mv /var/www/html/wp-content /var/www/html/wp-content_origin && echo "moved wp-content" || echo "failed to move wp-content"
+        runuser -u www-data -- ln -s /var/www/wp-content /var/www/html && echo "linked wp-content" || echo "failed to link wp-content"
+        break
+    fi
+done &
+
 
 echo "Starting Apache"
 exec "$@"
