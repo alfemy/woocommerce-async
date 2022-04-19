@@ -182,21 +182,33 @@ set -u
 runuser -u www-data -- cp -pr /var/www/html/wp-content  /var/www/ &
 pid=$!
 echo "Start copying wp-content files, PID is $pid"
+start_time=$(date +%s)
 
-while /bin/true; do
+
+echo "Starting Temporary Apache"
+$@ &
+APACHE_PID=$!
+
+while true; do
     sleep 1
     if ps -p $pid > /dev/null
     then
-        echo "copying is running"
+        echo "copying is running, spent $(($(date +%s)-start_time)) seconds"
     else
         echo "copying is not running"
         runuser -u www-data -- mv /var/www/html/wp-content /var/www/html/wp-content_origin && echo "moved wp-content" || echo "failed to move wp-content"
         runuser -u www-data -- ln -s /var/www/wp-content /var/www/html && echo "linked wp-content" || echo "failed to link wp-content"
+        echo "Kill temporary apache process and wait for child process"
+        kill $APACHE_PID
+        echo "Wait for child process to finish"
+        wait $APACHE_PID
+#        echo "Make sure apache port is free"
+#        while kill -0 $APACHE_PID >/dev/null 2>&1; do
+#            echo "Waiting for apache to exit"
+#            sleep 1
+#        done
+        echo "Starting Persistent Apache"
+        exec "$@"
         break
     fi
-done &
-
-
-echo "Starting Apache"
-exec "$@"
-}
+done

